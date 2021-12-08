@@ -1,102 +1,60 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import "./styles.css";
 import clsx from "clsx";
+import { Reorder } from "framer-motion";
 
-const initialColumns = [
-  {
-    key: "1"
-  },
-  {
-    key: "2"
-  },
-  {
-    key: "3"
-  }
-];
-
-const getSelectedKeys = (...args) => {
-  return args.map((ele) => ele?.getAttribute("data-key"));
-};
-
-const getCords = (...args) => {
-  const [first, second] = args.map(
-    (ele) => ele?.getBoundingClientRect().left || { left: 0 }
-  );
-  return first - second;
-};
-const getSelectedIndexes = (keys, columns) => {
-  return keys.map((key, i) =>
-    columns.findIndex(({ key: cKey }) => cKey === key)
-  );
+const initialColumns = ["1", "2", "3"];
+const initialSelected = {
+  first: { value: null, index: null },
+  second: { value: null, index: null }
 };
 
 export default function App() {
   const [columns, setColumns] = useState(initialColumns);
-  const [firstSelected, setFirstSelected] = useState(null);
-  const [secondSelected, setSecondSelected] = useState(null);
-  const selectedColumnsKeys = getSelectedKeys(firstSelected, secondSelected);
-  const selectedColumnsIndexes = getSelectedIndexes(
-    selectedColumnsKeys,
-    columns
-  );
-  const changeInX = getCords(firstSelected, secondSelected);
+  const [selected, setSelected] = useState(initialSelected);
 
   useLayoutEffect(() => {
-    if (!firstSelected || !secondSelected) return;
-    // Before the DOM paints, invert child to old position
-    firstSelected.style.transform = `translateX(${changeInX}px)`;
-    firstSelected.style.transition = "transform 0s";
-    secondSelected.style.transform = `translateX(${-changeInX}px)`;
-    secondSelected.style.transition = "transform 0s";
-
-    requestAnimationFrame(() => {
-      // After the previous frame, remove
-      // the transistion to play the animation
-      firstSelected.style.transform = "";
-      firstSelected.style.transition = "transform 500ms";
-      secondSelected.style.transform = "";
-      secondSelected.style.transition = "transform 500ms";
+    if (!selected.second.value) return;
+    setColumns((prevColumns) => {
+      const columnsCopy = [...prevColumns];
+      columnsCopy[selected.first.index] = selected.second.value;
+      columnsCopy[selected.second.index] = selected.first.value;
+      return columnsCopy;
     });
-    const columnsCopy = [...columns];
-    const [firstKey, secondKey] = selectedColumnsKeys;
-    const [firstIdx, secondIdx] = selectedColumnsIndexes;
-    if (columnsCopy[firstIdx] && columnsCopy[secondIdx]) {
-      columnsCopy[firstIdx] = { key: secondKey };
-      columnsCopy[secondIdx] = { key: firstKey };
-    }
-
-    setColumns(columnsCopy);
     resetSelected();
-  }, [secondSelected]);
+  }, [selected]);
 
   const resetSelected = () => {
-    setFirstSelected(null);
-    setSecondSelected(null);
+    setSelected(initialSelected);
   };
 
-  const select = (event) => {
-    if (!firstSelected) {
-      return setFirstSelected(event.target);
-    }
-    if (!secondSelected) {
-      return setSecondSelected(event.target);
-    }
+  const select = ({ target }, i) => {
+    const selectedItem = { value: target.getAttribute("data-key"), index: i };
+    const key = !selected.first.value ? "first" : "second";
+    return setSelected((prev) => ({
+      ...prev,
+      [key]: selectedItem
+    }));
   };
 
   return (
     <div className="App">
-      {columns.map(({ key }) => (
-        <div
-          onClick={select}
-          className={clsx("block", {
-            selected: selectedColumnsKeys.includes(key)
-          })}
-          key={key}
-          data-key={key}
-        >
-          {key}
-        </div>
-      ))}
+      <Reorder.Group values={columns} className="container">
+        {columns.map((key, i) => (
+          <Reorder.Item
+            as="div"
+            onClick={(e) => select(e, i)}
+            dragListener={false}
+            className={clsx("block", {
+              selected: selected.first.value === key
+            })}
+            key={key}
+            data-key={key}
+          >
+            {key}
+          </Reorder.Item>
+        ))}
+      </Reorder.Group>
     </div>
   );
 }
